@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>単語テスト</title>
+  <style>
+    :root { --r: 14px; --gap: 12px; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+      background: #0b0f14; color: #e8eef6;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+    header { display:flex; gap:12px; align-items:center; justify-content:space-between; }
+    h1 { font-size: 18px; margin: 10px 0; }
+    .card {
+      background: #111927; border: 1px solid #1d2a3f; border-radius: var(--r);
+      padding: 14px; margin-top: 12px;
+    }
+    .row { display:flex; gap: var(--gap); flex-wrap: wrap; }
+    .row > * { flex: 1 1 180px; }
+    button, input, select, textarea {
+      width: 100%; padding: 12px 12px; border-radius: 12px; border: 1px solid #23344f;
+      background: #0f1624; color: #e8eef6; font-size: 16px;
+    }
+    button { cursor: pointer; border-color:#2c4164; }
+    button.primary { background: #1b3a75; border-color:#2b58b0; }
+    button.good { background:#124b2a; border-color:#1f7a44; }
+    button.bad { background:#4a1a1a; border-color:#8b2d2d; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .muted { color:#a9b6c9; font-size: 13px; line-height: 1.4; }
+    .big { font-size: 28px; font-weight: 700; margin: 10px 0 2px; letter-spacing: .5px; }
+    .stat { display:flex; gap:10px; flex-wrap:wrap; }
+    .pill { padding: 6px 10px; border:1px solid #23344f; border-radius: 999px; font-size: 13px; color:#cfe0ff; background:#0e1624; }
+    .qbox { padding: 12px; border-radius: 14px; border:1px solid #23344f; background:#0e1522; }
+    .choices { display:grid; gap:10px; margin-top:10px; }
+    .choices button { text-align:left; }
+    textarea { min-height: 130px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .hr { height:1px; background:#1d2a3f; margin: 12px 0; }
+    .list { margin:0; padding-left: 18px; }
+    .list li { margin: 6px 0; }
+    footer { margin: 18px 0 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>単語テスト（スマホ対応）</h1>
+      <div class="pill" id="storeState">未保存</div>
+    </header>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <label class="muted">出題数</label>
+          <select id="count">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted">モード</label>
+          <select id="mode">
+            <option value="4choice">4択（英→日）</option>
+            <option value="typing">入力（英→日）</option>
+            <option value="wrongOnly">間違いだけ</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted">シャッフル</label>
+          <select id="shuffle">
+            <option value="yes">する</option>
+            <option value="no">しない</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="startBtn">スタート</button>
+        <button id="resetStatsBtn">成績リセット</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="stat">
+        <div class="pill" id="statTotal">登録: 0語</div>
+        <div class="pill" id="statAcc">正答率: -</div>
+        <div class="pill" id="statStreak">連続正解: 0</div>
+        <div class="pill" id="statWrong">間違い: 0</div>
+      </div>
+
+      <p class="muted" style="margin-top:10px">
+        ※単語データはブラウザに保存されます（この端末だけ）。iPhoneの「プライベートブラウズ」だと保存が消えることがあります。
+      </p>
+    </div>
+
+    <div class="card" id="quizCard" style="display:none">
+      <div class="muted" id="progress">Q 1 / 10</div>
+      <div class="big" id="questionWord">example</div>
+      <div class="muted" id="hint">意味を選ぶ</div>
+
+      <div class="qbox" id="typingBox" style="display:none">
+        <label class="muted">日本語の意味（部分一致OK）</label>
+        <input id="typingInput" placeholder="例：例、見本、実例 など" />
+        <div class="row" style="margin-top:10px">
+          <button class="good" id="typingOk">判定</button>
+          <button class="bad" id="typingSkip">わからん</button>
+        </div>
+      </div>
+
+      <div class="choices" id="choices"></div>
+
+      <div class="hr"></div>
+      <div class="muted" id="feedback"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="nextBtn" disabled>次へ</button>
+        <button id="stopBtn">中断</button>
+      </div>
+    </div>
+
+    <div class="card" id="resultCard" style="display:none">
+      <div class="big" id="resultTitle">結果</div>
+      <div class="stat">
+        <div class="pill" id="resultScore">-</div>
+        <div class="pill" id="resultTime">-</div>
+      </div>
+
+      <div class="hr"></div>
+      <div>
+        <div class="muted">間違いリスト</div>
+        <ul class="list" id="wrongList"></ul>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="retryWrongBtn">間違いだけ再テスト</button>
+        <button id="backBtn">戻る</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:16px;margin:0 0 8px">単語データの入れ方（ターゲット1900を入れる場所）</h2>
+
+      <div class="row">
+        <div>
+          <label class="muted">① CSVファイルを読み込み（おすすめ）</label>
+          <input type="file" id="fileInput" accept=".csv,.txt" />
+          <p class="muted">
+            形式：<code>word,meaning</code>（1行1語）<br/>
+            例：<code>abandon,捨てる</code>
+          </p>
+        </div>
+        <div>
+          <label class="muted">② コピペで追加（少量向け）</label>
+          <textarea id="pasteArea" placeholder="例：
+abandon,捨てる
+access,入手する
+..."></textarea>
+          <div class="row">
+            <button class="primary" id="importPasteBtn">この内容を取り込み</button>
+            <button id="exportBtn">登録データを書き出し</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="row">
+        <button id="loadSampleBtn">サンプル10語を入れる（動作確認）</button>
+        <button id="clearWordsBtn">登録単語を全削除</button>
+      </div>
+
+      <p class="muted" style="margin-top:10px">
+        重要：ターゲット1900の全収録語を“こちらから配布”はできないけど、君が手元で作ったCSVをここに入れるのはOK。
+      </p>
+    </div>
+
+    <footer class="muted">
+      ローカル保存：<span id="storageInfo">-</span>
+    </footer>
+  </div>
+
+  <script>
+    // ======= Storage =======
+    const LS_WORDS = "vocab_words_v1";
+    const LS_STATS = "vocab_stats_v1";
+    const LS_WRONG = "vocab_wrong_v1";
+
+    const $ = (id) => document.getElementById(id);
+
+    function save(key, val) {
+      localStorage.setItem(key, JSON.stringify(val));
+      $("storeState").textContent = "保存済み";
+      setTimeout(() => $("storeState").textContent = "保存", 800);
+      refreshStorageInfo();
+    }
+    function load(key, fallback) {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      try { return JSON.parse(raw); } catch { return fallback; }
+    }
+
+    // words: [{w:"abandon", m:"捨てる"}]
+    let words = load(LS_WORDS, []);
+    let stats = load(LS_STATS, { correct:0, total:0, streak:0 });
+    let wrongSet = new Set(load(LS_WRONG, [])); // store words(w) that were missed at least once
+
+    // ======= UI refresh =======
+    function refreshStats() {
+      $("statTotal").textContent = `登録: ${words.length}語`;
+      const acc = stats.total ? Math.round((stats.correct / stats.total) * 100) : null;
+      $("statAcc").textContent = `正答率: ${acc === null ? "-" : acc + "%"}`;
+      $("statStreak").textContent = `連続正解: ${stats.streak}`;
+      $("statWrong").textContent = `間違い: ${wrongSet.size}`;
+    }
+    function refreshStorageInfo(){
+      try {
+        const used = new Blob(Object.values(localStorage)).size;
+        $("storageInfo").textContent = `${used.toLocaleString()} bytes / localStorage`;
+      } catch {
+        $("storageInfo").textContent = "取得できません";
+      }
+    }
+
+    // ======= Helpers =======
+    function shuffle(arr){
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+    function pickRandom(arr, n){
+      if (n >= arr.length) return shuffle(arr);
+      return shuffle(arr).slice(0, n);
+    }
+    function norm(s){
+      return (s ?? "").toString().trim().toLowerCase();
+    }
+    function parseLinesToWords(text){
+      const out = [];
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      for (const line of lines){
+        // allow "word,meaning" or "word<TAB>meaning"
+        const parts = line.includes(",") ? line.split(",") : line.split(/\t+/);
+        if (parts.length < 2) continue;
+        const w = parts[0].trim();
+        const m = parts.slice(1).join(",").trim();
+        if (!w || !m) continue;
+        out.push({ w, m });
+      }
+      return out;
+    }
+    function dedupeMerge(existing, incoming){
+      const map = new Map(existing.map(x => [norm(x.w), x]));
+      for (const it of incoming){
+        const key = norm(it.w);
+        if (!key) continue;
+        map.set(key, { w: it.w.trim(), m: it.m.trim() });
+      }
+      return Array.from(map.values()).sort((a,b)=>a.w.localeCompare(b.w));
+    }
+
+    // ======= Quiz state =======
+    let quiz = null;
+
+    function startQuiz(mode){
+      if (words.length < 4 && mode === "4choice") {
+        alert("4択は最低4語必要です。まず単語を入れてね。");
+        return;
+      }
+      if (words.length < 1){
+        alert("単語が0語です。まず単語を入れてね。");
+        return;
+      }
+      const count = parseInt($("count").value, 10);
+      const doShuffle = $("shuffle").value === "yes";
+
+      let pool = words.slice();
+      if (mode === "wrongOnly"){
+        pool = pool.filter(x => wrongSet.has(norm(x.w)));
+        if (pool.length === 0){
+          alert("間違い単語がまだないよ。普通にスタートしてね。");
+          return;
+        }
+      }
+      if (doShuffle) pool = shuffle(pool);
+
+      const picked = pickRandom(pool, Math.min(count, pool.length));
+      quiz = {
+        mode,
+        items: picked,
+        idx: 0,
+        startTime: Date.now(),
+        wrongThisRun: [],
+        answered: false,
+      };
+
+      $("resultCard").style.display = "none";
+      $("quizCard").style.display = "block";
+      $("feedback").textContent = "";
+      $("nextBtn").disabled = true;
+
+      renderQuestion();
+    }
+
+    function renderQuestion(){
+      const q = quiz.items[quiz.idx];
+      $("progress").textContent = `Q ${quiz.idx + 1} / ${quiz.items.length}`;
+      $("questionWord").textContent = q.w;
+
+      $("feedback").textContent = "";
+      $("nextBtn").disabled = true;
+      quiz.answered = false;
+
+      const isTyping = quiz.mode === "typing";
+      $("typingBox").style.display = isTyping ? "block" : "none";
+      $("choices").style.display = isTyping ? "none" : "grid";
+      $("hint").textContent = isTyping ? "意味を入力（部分一致OK）" : "意味を選ぶ";
+
+      if (isTyping){
+        $("typingInput").value = "";
+        $("typingInput").focus();
+        return;
+      }
+
+      // 4 choices
+      const correct = q.m;
+      const others = shuffle(words.filter(x => norm(x.w) !== norm(q.w))).slice(0, 3).map(x => x.m);
+      const choices = shuffle([correct, ...others]);
+
+      $("choices").innerHTML = "";
+      for (const c of choices){
+        const btn = document.createElement("button");
+        btn.textContent = c;
+        btn.onclick = () => answerChoice(c);
+        $("choices").appendChild(btn);
+      }
+    }
+
+    function mark(correct){
+      stats.total += 1;
+      if (correct){
+        stats.correct += 1;
+        stats.streak += 1;
+      } else {
+        stats.streak = 0;
+      }
+      save(LS_STATS, stats);
+      refreshStats();
+    }
+
+    function answerChoice(selectedMeaning){
+      if (quiz.answered) return;
+      quiz.answered = true;
+
+      const q = quiz.items[quiz.idx];
+      const ok = selectedMeaning === q.m;
+
+      if (!ok){
+        wrongSet.add(norm(q.w));
+        quiz.wrongThisRun.push(q);
+        save(LS_WRONG, Array.from(wrongSet));
+      }
+
+      mark(ok);
+      $("feedback").textContent = ok ? "✅ 正解！" : `❌ 不正解… 正解：${q.m}`;
+      $("nextBtn").disabled = false;
+    }
+
+    function answerTyping(){
+      if (quiz.answered) return;
+      quiz.answered = true;
+
+      const q = quiz.items[quiz.idx];
+      const input = norm($("typingInput").value);
+      const ans = norm(q.m);
+
+      const ok = input && (ans.includes(input) || input.includes(ans)); // loose match
+      if (!ok){
+        wrongSet.add(norm(q.w));
+        quiz.wrongThisRun.push(q);
+        save(LS_WRONG, Array.from(wrongSet));
+      }
+
+      mark(ok);
+      $("feedback").textContent = ok ? "✅ 正解！" : `❌ 不正解… 正解：${q.m}`;
+      $("nextBtn").disabled = false;
+    }
+
+    function skipTyping(){
+      if (quiz.answered) return;
+      $("typingInput").value = "";
+      answerTyping(); // will be wrong
+    }
+
+    function next(){
+      if (!quiz) return;
+      if (quiz.idx < quiz.items.length - 1){
+        quiz.idx += 1;
+        renderQuestion();
+      } else {
+        finishQuiz();
+      }
+    }
+
+    function finishQuiz(){
+      $("quizCard").style.display = "none";
+      $("resultCard").style.display = "block";
+
+      const total = quiz.items.length;
+      const wrongN = quiz.wrongThisRun.length;
+      const correctN = total - wrongN;
+      const sec = Math.round((Date.now() - quiz.startTime) / 1000);
+
+      $("resultTitle").textContent = "結果";
+      $("resultScore").textContent = `正解 ${correctN} / ${total}`;
+      $("resultTime").textContent = `時間 ${sec}秒`;
+
+      const ul = $("wrongList");
+      ul.innerHTML = "";
+      if (wrongN === 0){
+        const li = document.createElement("li");
+        li.textContent = "なし（完璧）";
+        ul.appendChild(li);
+      } else {
+        for (const it of quiz.wrongThisRun){
+          const li = document.createElement("li");
+          li.textContent = `${it.w} — ${it.m}`;
+          ul.appendChild(li);
+        }
+      }
+    }
+
+    // ======= Import / Export =======
+    function importWords(incoming){
+      words = dedupeMerge(words, incoming);
+      save(LS_WORDS, words);
+      refreshStats();
+      alert(`取り込み完了：現在 ${words.length}語`);
+    }
+
+    $("fileInput").addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      const incoming = parseLinesToWords(text);
+      if (incoming.length === 0){
+        alert("読み込めませんでした。形式が 'word,meaning' になってるか確認してね。");
+        return;
+      }
+      importWords(incoming);
+      e.target.value = "";
+    });
+
+    $("importPasteBtn").onclick = () => {
+      const text = $("pasteArea").value;
+      const incoming = parseLinesToWords(text);
+      if (incoming.length === 0){
+        alert("取り込める行がなかった。例：abandon,捨てる");
+        return;
+      }
+      importWords(incoming);
+      $("pasteArea").value = "";
+    };
+
+    $("exportBtn").onclick = () => {
+      const csv = words.map(x => `${x.w},${x.m}`).join("\\n");
+      navigator.clipboard?.writeText(csv);
+      alert("登録データをクリップボードにコピーしたよ（貼り付けで保存できる）");
+    };
+
+    $("loadSampleBtn").onclick = () => {
+      const sample = [
+        {w:"abandon", m:"捨てる"},
+        {w:"access", m:"入手する"},
+        {w:"accompany", m:"同行する"},
+        {w:"accurate", m:"正確な"},
+        {w:"achieve", m:"達成する"},
+        {w:"acknowledge", m:"認める"},
+        {w:"acquire", m:"習得する"},
+        {w:"adapt", m:"適応する"},
+        {w:"adequate", m:"十分な"},
+        {w:"admire", m:"感心する"},
+      ];
+      importWords(sample);
+    };
+
+    $("clearWordsBtn").onclick = () => {
+      if (!confirm("登録単語を全削除する？（戻せない）")) return;
+      words = [];
+      wrongSet = new Set();
+      save(LS_WORDS, words);
+      save(LS_WRONG, []);
+      refreshStats();
+    };
+
+    // ======= Buttons =======
+    $("startBtn").onclick = () => startQuiz($("mode").value);
+    $("stopBtn").onclick = () => { $("quizCard").style.display="none"; quiz=null; };
+    $("nextBtn").onclick = next;
+
+    $("typingOk").onclick = answerTyping;
+    $("typingSkip").onclick = skipTyping;
+    $("typingInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") answerTyping();
+    });
+
+    $("retryWrongBtn").onclick = () => startQuiz("wrongOnly");
+    $("backBtn").onclick = () => { $("resultCard").style.display="none"; quiz=null; };
+
+    $("resetStatsBtn").onclick = () => {
+      if (!confirm("成績（正答率・連続）をリセットする？")) return;
+      stats = { correct:0, total:0, streak:0 };
+      save(LS_STATS, stats);
+      refreshStats();
+    };
+
+    // ======= init =======
+    refreshStats();
+    refreshStorageInfo();
+    $("storeState").textContent = "保存";
+  </script>
+</body>
+</html>
